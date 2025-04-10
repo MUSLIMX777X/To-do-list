@@ -1,0 +1,213 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>قائمة المهام</title>
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: #1f1f1f;
+      color: white;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      background: #2e2e2e;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      width: 90%;
+      max-width: 450px;
+    }
+    h2 {
+      text-align: center;
+      color: #00adb5;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #555;
+      border-radius: 10px;
+      background-color: #1f1f1f;
+      color: white;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      background-color: #00adb5;
+      color: white;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #007d85;
+    }
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      background: #3d3d3d;
+      margin: 8px 0;
+      padding: 10px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    li.done {
+      text-decoration: line-through;
+      color: #888;
+    }
+    .delete {
+      background: none;
+      border: none;
+      color: #ff6b6b;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .info {
+      font-size: 12px;
+      margin-top: 5px;
+      color: #bbb;
+    }
+    .footer {
+      margin-top: 20px;
+      color: #888;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>مهامي اليوم</h2>
+    <input type="text" id="taskInput" placeholder="أضف مهمة جديدة...">
+    <input type="datetime-local" id="taskTime">
+    <select id="taskCategory">
+      <option value="عام">عام</option>
+      <option value="عمل">عمل</option>
+      <option value="شخصي">شخصي</option>
+      <option value="مهم">مهم</option>
+    </select>
+    <button onclick="addTask()">إضافة</button>
+    <div class="filters">
+      <select id="filterCategory" onchange="renderTasks()">
+        <option value="الكل">كل التصنيفات</option>
+        <option value="عام">عام</option>
+        <option value="عمل">عمل</option>
+        <option value="شخصي">شخصي</option>
+        <option value="مهم">مهم</option>
+      </select>
+      <select id="filterStatus" onchange="renderTasks()">
+        <option value="الكل">كل المهام</option>
+        <option value="منجزة">منجزة</option>
+        <option value="غير منجزة">غير منجزة</option>
+      </select>
+    </div>
+    <ul id="taskList"></ul>
+    <div class="footer">صُنع بواسطة <a href="#" style="color:#00adb5;">مسلم عقيل</a></div>
+  </div>
+
+  <script>
+    let tasks = [];
+
+    window.onload = () => {
+      tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+      renderTasks();
+      setInterval(checkReminders, 60000);
+    };
+
+    function addTask() {
+      const text = document.getElementById('taskInput').value.trim();
+      const time = document.getElementById('taskTime').value;
+      const category = document.getElementById('taskCategory').value;
+      if (text === '') return;
+
+      tasks.push({ text, time, category, done: false });
+      saveTasks();
+      clearInputs();
+      renderTasks();
+    }
+
+    function saveTasks() {
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function clearInputs() {
+      document.getElementById('taskInput').value = '';
+      document.getElementById('taskTime').value = '';
+      document.getElementById('taskCategory').value = 'عام';
+    }
+
+    function renderTasks() {
+      const taskList = document.getElementById('taskList');
+      taskList.innerHTML = '';
+
+      const filterCategory = document.getElementById('filterCategory').value;
+      const filterStatus = document.getElementById('filterStatus').value;
+
+      tasks.forEach((task, index) => {
+        if ((filterCategory !== 'الكل' && task.category !== filterCategory) ||
+            (filterStatus === 'منجزة' && !task.done) ||
+            (filterStatus === 'غير منجزة' && task.done)) return;
+
+        const li = document.createElement('li');
+        if (task.done) li.classList.add('done');
+        li.onclick = () => {
+          task.done = !task.done;
+          saveTasks();
+          renderTasks();
+        };
+
+        li.innerHTML = `
+          <div style="flex:1">
+            <strong>${task.text}</strong>
+            <div class="info">${task.category}${task.time ? ' - ' + new Date(task.time).toLocaleString('ar-EG') : ''}</div>
+          </div>
+          <button class="delete" onclick="deleteTask(${index}, event)">✕</button>
+        `;
+
+        taskList.appendChild(li);
+      });
+    }
+
+    function deleteTask(index, event) {
+      event.stopPropagation();
+      tasks.splice(index, 1);
+      saveTasks();
+      renderTasks();
+    }
+
+    function checkReminders() {
+      const now = new Date().getTime();
+      tasks.forEach(task => {
+        if (task.time && !task.done) {
+          const taskTime = new Date(task.time).getTime();
+          const diff = taskTime - now;
+          if (diff > 0 && diff < 60000) {
+            alert(`تذكير: لديك مهمة الآن - ${task.text}`);
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
